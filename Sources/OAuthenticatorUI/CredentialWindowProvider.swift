@@ -1,3 +1,4 @@
+import OAuthenticator
 #if (os(iOS) || os(macOS)) && canImport(AuthenticationServices)
 
 #if os(iOS)

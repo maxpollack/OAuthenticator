@@ -14,6 +14,7 @@ let package = Package(
 	],
 	products: [
 		.library(name: "OAuthenticator", targets: ["OAuthenticator"]),
+		.library(name: "OAuthenticatorUI", targets: ["OAuthenticatorUI"]),
 	],
 	dependencies: [
 	],
@@ -23,6 +24,7 @@ let package = Package(
 			dependencies: [],
 			resources: [.process("PrivacyInfo.xcprivacy")]
 		),
+		.target(name: "OAuthenticatorUI", dependencies: ["OAuthenticator"]),
 		.testTarget(name: "OAuthenticatorTests", dependencies: ["OAuthenticator"]),
 	]
 )

@@ -280,8 +280,6 @@ extension DPoPSigner {
 	// The logic here is taken from:
 	// https://github.com/bluesky-social/atproto/blob/4e96e2c7/packages/oauth/oauth-client/src/fetch-dpop.ts#L195
 	private func isUseDpopError(data: Data, response: HTTPURLResponse, isAuthServer: Bool?) -> Bool {
-		print(
-			"isAuthServer: " + (isAuthServer == nil ? "nil" : (isAuthServer == true ? "true" : "false")))
 		// https://datatracker.ietf.org/doc/html/rfc6750#section-3
 		// https://datatracker.ietf.org/doc/html/rfc9449#name-resource-server-provided-no
 		if isAuthServer == nil || isAuthServer == false {

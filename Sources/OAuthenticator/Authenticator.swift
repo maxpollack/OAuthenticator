@@ -2,9 +2,6 @@ import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
-#if canImport(AuthenticationServices)
-import AuthenticationServices
-#endif
 
 public enum AuthenticatorError: Error, Hashable {
 	case missingScheme
@@ -76,37 +73,19 @@ public actor Authenticator {
 		public let tokenHandling: TokenHandling
 		public let userAuthenticator: UserAuthenticator
 		public let mode: UserAuthenticationMode
+		public let now: @Sendable () -> Date
 
 		// Specify an authenticationResult closure to obtain result and grantedScope
 		public let authenticationStatusHandler: AuthenticationStatusHandler?
 
-#if canImport(AuthenticationServices)
-		@available(tvOS 16.0, macCatalyst 13.0, *)
-		public init(
-			appCredentials: AppCredentials,
-			loginStorage: LoginStorage? = nil,
-			tokenHandling: TokenHandling,
-			mode: UserAuthenticationMode = .automatic,
-			authenticationStatusHandler: AuthenticationStatusHandler? = nil
-		) {
-			self.appCredentials = appCredentials
-			self.loginStorage = loginStorage
-			self.tokenHandling = tokenHandling
-			self.mode = mode
 
-			// It *should* be possible to use just a reference to
-			// ASWebAuthenticationSession.userAuthenticator directly here
-			// with GlobalActorIsolatedTypesUsability, but it isn't working
-			self.userAuthenticator = { try await ASWebAuthenticationSession.userAuthenticator(url: $0, scheme: $1) }
-			self.authenticationStatusHandler = authenticationStatusHandler
-		}
-#endif
 
 		public init(
 			appCredentials: AppCredentials,
 			loginStorage: LoginStorage? = nil,
 			tokenHandling: TokenHandling,
 			mode: UserAuthenticationMode = .automatic,
+			now: @escaping @Sendable () -> Date = { Date() },
 			userAuthenticator: @escaping UserAuthenticator,
 			authenticationStatusHandler: AuthenticationStatusHandler? = nil
 		) {
@@ -114,6 +93,7 @@ public actor Authenticator {
 			self.loginStorage = loginStorage
 			self.tokenHandling = tokenHandling
 			self.mode = mode
+			self.now = now
 			self.userAuthenticator = userAuthenticator
 			self.authenticationStatusHandler = authenticationStatusHandler
 		}
@@ -206,7 +186,11 @@ public actor Authenticator {
 }
 
 extension Authenticator {
-	private func retrieveLogin() async throws -> Login? {
+	private func isValid(_ token: Token) -> Bool {
+        token.expiry.map { $0 > config.now() } ?? true
+    }
+
+    private func retrieveLogin() async throws -> Login? {
 		guard let storage = config.loginStorage else {
 			return localLogin
 		}
@@ -215,6 +199,7 @@ extension Authenticator {
 	}
 
 	private func storeLogin(_ login: Login) async throws {
+        try Task.checkCancellation()
 		guard let storage = config.loginStorage else {
 			self.localLogin = login
 			return
@@ -240,7 +225,7 @@ extension Authenticator {
 				return try await performUserAuthentication(manual: manual, userAuthenticator: userAuthenticator)
 			}
 
-			if login.accessToken.valid {
+			if isValid(login.accessToken) {
 				return login
 			}
 
@@ -293,7 +278,7 @@ extension Authenticator {
 			throw error
 		}
 
-		guard login.accessToken.valid else {
+		guard isValid(login.accessToken) else {
 			throw AuthenticatorError.tokenInvalid
 		}
 
@@ -346,7 +331,7 @@ extension Authenticator {
 			return nil
 		}
 
-		guard refreshToken.valid else {
+		guard isValid(refreshToken) else {
 			return nil
 		}
 
@@ -361,8 +346,15 @@ extension Authenticator {
 
 			return login
 		} catch {
-			try await clearLogin()
-
+            // An offline request or cancellation does not revoke the refresh grant.
+            // Delete credentials only when the provider confirms a terminal failure.
+            if let failure = error as? AuthenticatorError {
+                switch failure {
+                case .invalidGrant, .tokenInvalid, .refreshNotPossible:
+                    try await clearLogin()
+                default: break
+                }
+            }
 			throw error
 		}
 	}
@@ -392,12 +384,9 @@ extension Authenticator {
 			"code_challenge_method": challenge.method,
 		]
 
-		let body = params
-			.merging(base, uniquingKeysWith: { a, b in a })
-			.map({ [$0, $1].joined(separator: "=") })
-			.joined(separator: "&")
-
-		request.httpBody = Data(body.utf8)
+		// PAR is an OAuth form: values must be escaped independently, including
+		// nested client-metadata query strings and literal plus/percent signs.
+		request.httpBody = FormURLEncoder.encode(params.merging(base, uniquingKeysWith: { a, _ in a }))
 
 		let (data, response) = try await self.dpopResponse(for: request, login: nil, isAuthServer: true)
 
@@ -469,7 +458,6 @@ extension Authenticator {
 	private func dpopResponse(for request: URLRequest, login: Login?, isAuthServer: Bool?)
 		async throws -> (Data, URLResponse)
 	{
-		print("Request: \(request.httpMethod!) - \(request.url?.absoluteString ?? "missing url")")
 		guard let generator = config.tokenHandling.dpopJWTGenerator else {
 			return try await urlLoader(request)
 		}

@@ -1,3 +1,4 @@
+import OAuthenticator
 // It is not 100% clear why a plain import of "AuthenticationServices" does not work here,
 // but in some cases/configuration it appears to fail.
 #if canImport(_AuthenticationServices_SwiftUI)

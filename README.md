@@ -377,3 +377,16 @@ By participating in this project you agree to abide by the [Contributor Code of 
 [platforms badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FATProtoKit%2FOAuthenticator%2Fbadge%3Ftype%3Dplatforms
 [documentation]: https://swiftpackageindex.com/ChimeHQ/OAuthenticator/main/documentation
 [documentation badge]: https://img.shields.io/badge/Documentation-DocC-blue
+
+### Dogsky compatibility branch
+
+Based on upstream `main` at `b455b1259da75f056d1e24f8926227eaa13e1c7a`.
+The `OAuthenticator` product contains the OAuth core. Optional Apple browser
+helpers now require importing the separate `OAuthenticatorUI` product.
+This preserves a UI-independent dependency for protocol libraries.
+
+The branch also percent-encodes PAR form fields, removes unconditional request
+and response logging, preserves refresh grants after transient failures, checks
+cancellation before storing a login, and accepts an injectable configuration clock
+(defaulting to `Date()`). Regression tests exercise PAR, issuer ordering,
+successful nonce rotation, and offline versus terminal refresh failures.

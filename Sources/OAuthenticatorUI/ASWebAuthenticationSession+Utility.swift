@@ -1,3 +1,4 @@
+import OAuthenticator
 import Foundation
 #if canImport(AuthenticationServices)
 import AuthenticationServices

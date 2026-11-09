@@ -176,8 +176,6 @@ public struct GoogleAPI {
 			return response.login
 		}
 		catch let decodingError as DecodingError {
-			let msg = decodingError.failureReason ?? decodingError.localizedDescription
-			print("Reponse from AuthenticationProvider is not conformed to provided response format. ", msg)
 			throw decodingError
 		}
 	}
@@ -225,8 +223,6 @@ public struct GoogleAPI {
 				return response.login
 			}
 			catch let decodingError as DecodingError {
-				let msg = decodingError.failureReason ?? decodingError.localizedDescription
-				print("Non-conformant response from AuthenticationProvider:", msg)
 				
 				throw decodingError
 			}
